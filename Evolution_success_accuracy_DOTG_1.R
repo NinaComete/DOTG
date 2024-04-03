@@ -1,0 +1,99 @@
+library(ggplot2)
+library(readr)
+library(gridExtra)
+
+# Chargement des données
+G_200001_1_learn <- read.csv("D:\\Users\\hlendrin\\Documents\\R_DOTG\\200001-1-learn\\average.csv", header = TRUE, sep = " ")
+G_200001_1_random <- read.csv("D:\\Users\\hlendrin\\Documents\\R_DOTG\\200001-1-random\\average.csv", header = TRUE, sep = " ")
+
+# Seuil de changement minimal pour déterminer la stabilité de avg.accuracy
+seuil_changement <- 0.0000001  # Seuil pour les fichiers
+
+# LEARN ------
+# Trouver le rang de l'itération où la stabilité de avg.accuracy est atteinte pour G_200001_1_learn
+indices_stabilite_learn <- which(diff(G_200001_1_learn$avg.accuracy) <= seuil_changement)
+
+# Identifier la première occurrence où la stabilité est atteinte sur plusieurs itérations pour G_200001_1_learn
+stabilite_trouvee_learn <- FALSE
+for (i in indices_stabilite_learn) {
+  nb_iterations_verifier <- 1000  # Définir la valeur de nb_iterations_verifier ici
+  if (all(diff(G_200001_1_learn$avg.accuracy[(i+1):(i+nb_iterations_verifier)]) <= seuil_changement)) {
+    iteration_stabilite_learn <- i + 1
+    valeur_stabilite_learn <- G_200001_1_learn$avg.accuracy[iteration_stabilite_learn]
+    stabilite_trouvee_learn <- TRUE
+    break
+  }
+}
+
+
+# Afficher le résultat si une stabilité est trouvée pour G_200001_1_learn
+if (stabilite_trouvee_learn) {
+  print(paste("La valeur stabilisée de avg.accuracy pour 200001-1-learn est :", round(valeur_stabilite_learn, 4), "à l'itération", iteration_stabilite_learn))
+} else {
+  print("Aucune stabilité trouvée pour avg.accuracy (200001-1-learn).")
+}
+
+# Modifier le graphique pour inclure l'étiquette au point de croisement des courbes pour G_200001_1_learn
+evolution_success_accuracy_G_200001_1_learn <- ggplot(G_200001_1_learn, aes(x = seq_along(avg.ssrate), y = avg.ssrate)) +
+  geom_line(color = "blue", aes(x = seq_along(avg.ssrate), y = avg.ssrate, linetype = "avg.ssrate (200001-1-learn)")) +  # Courbe pour avg.ssrate
+  geom_line(aes(y = avg.accuracy, linetype = "avg.accuracy (200001-1-learn)"), color = "red") +  # Courbe pour avg.accuracy
+  geom_text(data = data.frame(x = iteration_stabilite_learn,
+                              y = valeur_stabilite_learn,
+                              label = paste("avg.ssrate : ", round(G_200001_1_learn$avg.ssrate[iteration_stabilite_learn], 4), "(", iteration_stabilite_learn, ")\n",
+                                            "avg.accuracy : ", round(valeur_stabilite_learn, 4), "(", iteration_stabilite_learn, ")")),
+            aes(x = x, y = y, label = label), hjust = -0.2, vjust = 1, color = "black") +  # Ajout du texte pour le point de croisement
+  labs(x = "Nombre d'itérations", y = "Valeur") +  # Étiquettes des axes
+  ggtitle("G_200001_1_learn : Valeurs du succès et de la précision par itération") +  # Titre du graphique
+  theme_minimal() +  # Style minimal du graphique
+  scale_linetype_manual(values = c("avg.ssrate (200001-1-learn)" = "solid", "avg.accuracy (200001-1-learn)" = "solid")) +  # Style des lignes
+  labs(linetype = "Variable") +  # Légende des styles de ligne
+  theme(legend.position = "top")  # Position de la légende
+
+# Afficher le graphique pour G_200001_1_learn
+print(evolution_success_accuracy_G_200001_1_learn)
+
+# RANDOM ------
+# Trouver le rang de l'itération où la stabilité de avg.accuracy est atteinte pour G_200001_1_random
+indices_stabilite_random <- which(diff(G_200001_1_random$avg.accuracy) <= seuil_changement)
+
+# Identifier la première occurrence où la stabilité est atteinte sur plusieurs itérations pour G_200001_1_random
+stabilite_trouvee_random <- FALSE
+for (i in indices_stabilite_random) {
+  if (all(diff(G_200001_1_random$avg.accuracy[(i+1):(i+nb_iterations_verifier)]) <= seuil_changement)) {
+    iteration_stabilite_random <- i + 1
+    valeur_stabilite_random <- G_200001_1_random$avg.accuracy[iteration_stabilite_random]
+    stabilite_trouvee_random <- TRUE
+    break
+  }
+}
+
+# Afficher le résultat si une stabilité est trouvée pour G_200001_1_random
+if (stabilite_trouvee_random) {
+  print(paste("La valeur stabilisée de avg.accuracy pour 200001-1-random est :", round(valeur_stabilite_random, 4), "à l'itération", iteration_stabilite_random))
+} else {
+  print("Aucune stabilité trouvée pour avg.accuracy (200001-1-random).")
+}
+
+# Modifier le graphique pour inclure l'étiquette au point de croisement des courbes pour G_200001_1_random
+evolution_success_accuracy_G_200001_1_random <- ggplot(G_200001_1_random, aes(x = seq_along(avg.ssrate), y = avg.ssrate)) +
+  geom_line(color = "purple", aes(x = seq_along(avg.ssrate), y = avg.ssrate, linetype = "avg.ssrate (200001-1-random)")) +  # Courbe pour avg.ssrate
+  geom_line(aes(y = avg.accuracy, linetype = "avg.accuracy (200001-1-random)"), color = "orange") +  # Courbe pour avg.accuracy
+  geom_text(data = data.frame(x = iteration_stabilite_random,
+                              y = valeur_stabilite_random,
+                              label = paste("avg.ssrate : ", round(G_200001_1_random$avg.ssrate[iteration_stabilite_random], 4), "(", iteration_stabilite_random, ")\n",
+                                            "avg.accuracy : ", round(valeur_stabilite_random, 4), "(", iteration_stabilite_random, ")")),
+            aes(x = x, y = y, label = label), hjust = -0.2, vjust = 1, color = "black") +  # Ajout du texte pour le point de croisement
+  labs(x = "Nombre d'itérations", y = "Valeur") +  # Étiquettes des axes
+  ggtitle("G_200001_1_random : Valeurs du succès et de la précision par itération") +  # Titre du graphique
+  theme_minimal() +  # Style minimal du graphique
+  scale_linetype_manual(values = c("avg.ssrate (200001-1-random)" = "solid", "avg.accuracy (200001-1-random)" = "solid")) +  # Style des lignes
+  labs(linetype = "Variable") +  # Légende des styles de ligne
+  theme(legend.position = "top")  # Position de la légende
+
+# Afficher le graphique pour G_200001_1_random
+print(evolution_success_accuracy_G_200001_1_random)
+
+# Superposition des graphiques
+combined_plot <- grid.arrange(evolution_success_accuracy_G_200001_1_learn, evolution_success_accuracy_G_200001_1_random, nrow = 2)
+print(combined_plot)
+
