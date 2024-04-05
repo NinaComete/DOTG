@@ -1,4 +1,5 @@
 ---
+title: "Évolution du succès moyen et de la précision moyenne"
 output:
   html_document:
     fig_width: 8
@@ -24,6 +25,35 @@ G_200001_02_random <- read.csv("D:\\Users\\hlendrin\\Documents\\R_DOTG\\200001-0
 
 # Seuil de changement minimal pour déterminer la stabilité de avg.accuracy
 seuil_changement <- 0.0000001  # Seuil pour les fichiers
+
+# Trouver le rang de l'itération où la stabilité de avg.accuracy est atteinte pour G_200001_02_learn
+indices_stabilite_learn <- which(diff(G_200001_02_learn$avg.accuracy) <= seuil_changement)
+
+# Identifier la première occurrence où la stabilité est atteinte sur plusieurs itérations pour G_200001_02_learn
+stabilite_trouvee_learn <- FALSE
+for (i in indices_stabilite_learn) {
+  nb_iterations_verifier <- 1000  # Définir la valeur de nb_iterations_verifier ici
+  if (all(diff(G_200001_02_learn$avg.accuracy[(i+1):(i+nb_iterations_verifier)]) <= seuil_changement)) {
+    iteration_stabilite_learn <- i + 1
+    valeur_stabilite_learn <- G_200001_02_learn$avg.accuracy[iteration_stabilite_learn]
+    stabilite_trouvee_learn <- TRUE
+    break
+  }
+}
+
+# Trouver le rang de l'itération où la stabilité de avg.accuracy est atteinte pour G_200001_02_random
+indices_stabilite_random <- which(diff(G_200001_02_random$avg.accuracy) <= seuil_changement)
+
+# Identifier la première occurrence où la stabilité est atteinte sur plusieurs itérations pour G_200001_02_random
+stabilite_trouvee_random <- FALSE
+for (i in indices_stabilite_random) {
+  if (all(diff(G_200001_02_random$avg.accuracy[(i+1):(i+nb_iterations_verifier)]) <= seuil_changement)) {
+    iteration_stabilite_random <- i + 1
+    valeur_stabilite_random <- G_200001_02_random$avg.accuracy[iteration_stabilite_random]
+    stabilite_trouvee_random <- TRUE
+    break
+  }
+}
 
 # Trouver le rang de l'itération où la stabilité de avg.accuracy est atteinte pour G_200001_02_learn
 indices_stabilite_learn <- which(diff(G_200001_02_learn$avg.accuracy) <= seuil_changement)
