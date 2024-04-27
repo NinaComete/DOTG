@@ -1,0 +1,350 @@
+---
+title : "Evolution de la précision moyenne des connaissances (avg.genAccuracy) et du succès moyen des interactions (avg.genSrate) des agents dont la durée d'existence est de 30001 itérations (période = 20001), selon le taux de transmission aléatoire (moyenne des tables à transmission random de période 20001) et effectif (0.2 ; 0.4 ; 0.6 ; 0.8 ; 1)"
+  
+output:
+  html_document
+---
+
+```{r, echo=FALSE, warning=FALSE}
+library(ggplot2)
+library(readr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# Periode 20001, transmission aleatoire creation de la table moyenne des random ------
+# Importer les donnees
+url <- "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-1-random/average.csv"
+G_20001_1_random <- read.csv(url, header = TRUE, sep = " ")
+
+url <- "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-0.8-random/average.csv"
+G_20001_08_random <- read.csv(url, header = TRUE, sep = " ")
+
+url <- "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-0.6-random/average.csv"
+G_20001_06_random <- read.csv(url, header = TRUE, sep = " ")
+
+url <- "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-0.4-random/average.csv"
+G_20001_04_random <- read.csv(url, header = TRUE, sep = " ")
+
+url <- "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-0.2-random/average.csv"
+G_20001_02_random <- read.csv(url, header = TRUE, sep = " ")
+
+
+# Fonction pour calculer la moyenne des mêmes lignes des 5 fichiers importés
+calculate_row_mean <- function(tables) {
+  # Initialiser une liste pour stocker les lignes moyennes
+  mean_rows <- list()
+  
+  # Boucler à travers chaque ligne des tables
+  for (i in 1:nrow(tables[[1]])) {
+    # Extraire les lignes correspondantes de chaque table
+    rows <- lapply(tables, function(table) table[i, ])
+    # Calculer la moyenne des valeurs pour chaque ligne
+    mean_row <- colMeans(do.call(rbind, rows), na.rm = TRUE)
+    # Ajouter la ligne moyenne à la liste
+    mean_rows[[i]] <- mean_row
+  }
+  
+  # Créer un dataframe à partir des lignes moyennes calculées
+  df_moyennes_20001 <- as.data.frame(do.call(rbind, mean_rows))
+  
+  # Récupérer les noms de colonnes de la première table
+  col_names <- colnames(tables[[1]])
+  
+  return(list(df_moyennes_20001, col_names))
+}
+
+# Stocker les tables importées dans une liste
+tables <- list(G_20001_1_random, G_20001_08_random, G_20001_06_random, G_20001_04_random, G_20001_02_random)
+
+# Calculer la moyenne des mêmes lignes des 5 fichiers importés
+mean_data <- calculate_row_mean(tables)
+df_moyennes_20001 <- mean_data[[1]]
+col_names <- mean_data[[2]]
+
+# Ajouter une rangée pour les noms de colonnes
+colnames(df_moyennes_20001) <- col_names
+
+# Periode 20001, transmission aleatoire : Graph table moyenne des random ------
+
+# Trouver l'indice oe avg.genAccuracy est maximale
+max_index_accuracy <- which.max(df_moyennes_20001$avg.genAccuracy)
+# Recuperer le rang correspondant e cet indice
+max_rank_accuracy <- df_moyennes_20001$rank[max_index_accuracy]
+# Recuperer la valeur de avg.genAccuracy en ce point
+max_value_accuracy <- df_moyennes_20001$avg.genAccuracy[max_index_accuracy]
+
+# Trouver l'indice oe avg.genSrate est maximale
+max_index_srate <- which.max(df_moyennes_20001$avg.genSrate)
+# Recuperer le rang correspondant e cet indice
+max_rank_srate <- df_moyennes_20001$rank[max_index_srate]
+# Recuperer la valeur de avg.genSrate e ce point
+max_value_srate <- df_moyennes_20001$avg.genSrate[max_index_srate]
+
+# Selectionner le dernier point de l'iteration
+last_point <- tail(df_moyennes_20001, 1)
+
+# Tracer le graphique avec les deux courbes et le dernier point annoté
+ggplot(df_moyennes_20001, aes(x = rank)) +
+  geom_line(aes(y = avg.genAccuracy), color = "red") +
+  geom_line(aes(y = avg.genSrate), color = "blue") +
+  geom_point(data = df_moyennes_20001[max_index_accuracy, ], aes(x = rank, y = avg.genAccuracy), color = "red", size = 3) +
+  geom_point(data = df_moyennes_20001[max_index_srate, ], aes(x = rank, y = avg.genSrate), color = "blue", size = 3) +
+  geom_point(data = last_point, aes(x = rank, y = avg.genAccuracy), color = "green", size = 3) + # Ajout du dernier point en vert
+  annotate("text", x = last_point$rank, y = last_point$avg.genAccuracy - 0.02, label = paste("Dernier point :", last_point$rank, "\navg.genAccuracy =", round(last_point$avg.genAccuracy, digits = 4), "\navg.genSrate =", round(last_point$avg.genSrate, digits = 4)), vjust = -0.4, hjust = 0, color = "black", size = 3) +
+  annotate("text", x = max_rank_accuracy, y = max_value_accuracy - 0.02, 
+           label = paste("Max avg.genAccuracy\niteration :", max_rank_accuracy, ", value =", round(max_value_accuracy, digits = 7)), 
+           vjust = -0.8, hjust = 1, color = "red", size = 3) +
+  annotate("text", x = df_moyennes_20001$rank[max_index_srate] + 10000, y = max_value_srate - 0.02, label = paste("Max avg.genSrate\niteration  :", max_rank_srate, ", \nvalue =", round(max_value_srate, digits = 4)), vjust = 0.2, hjust = 0, color = "blue", size = 3) +
+  labs(title = "Periode 20001, transmission aléatoire (moyenne des random): evolution de la precision moyenne des \nconnaissances (avg.genAccuracy) et du succes moyen des interactions (avg.genSrate)") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 11), 
+        axis.title.y = element_text(margin = margin(t = 20)),  # Augmenter l'espace entre l'axe y et le titre
+        axis.title.x = element_text(margin = margin(t = 10)),  # Augmenter l'espace entre l'axe x et le graphique
+        axis.text.x = element_text(angle = 0, hjust = 0.5),     # Aligner horizontalement les étiquettes de l'axe x
+        plot.margin = margin(t = 20, r = 20, b = 20, l = 20)) +  # Ajuster les marges du graphique
+  scale_x_continuous(limits = c(min(df_moyennes_20001$rank), max(df_moyennes_20001$rank) + 53000), 
+                     labels = function(x) format(x, scientific = FALSE)) +  # Modifier le format de l'axe x
+  scale_y_continuous(limits = c(min(df_moyennes_20001$avg.genAccuracy, df_moyennes_20001$avg.genSrate), max(df_moyennes_20001$avg.genAccuracy, df_moyennes_20001$avg.genSrate) + 0.15)) # Augmenter les limites de l'axe y
+
+# Periode 20001, transmission 0.2, graphique -----
+
+# Importer les donnees
+url <- "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-0.2-learn/average.csv"
+G_20001_02_learn <- read.csv(url, header = TRUE, sep = " ")
+
+# Trouver l'indice oe avg.genAccuracy est maximale
+max_index_accuracy <- which.max(G_20001_02_learn$avg.genAccuracy)
+# Recuperer le rang correspondant e cet indice
+max_rank_accuracy <- G_20001_02_learn$rank[max_index_accuracy]
+# Recuperer la valeur de avg.genAccuracy en ce point
+max_value_accuracy <- G_20001_02_learn$avg.genAccuracy[max_index_accuracy]
+
+# Trouver l'indice oe avg.genSrate est maximale
+max_index_srate <- which.max(G_20001_02_learn$avg.genSrate)
+# Recuperer le rang correspondant e cet indice
+max_rank_srate <- G_20001_02_learn$rank[max_index_srate]
+# Recuperer la valeur de avg.genSrate e ce point
+max_value_srate <- G_20001_02_learn$avg.genSrate[max_index_srate]
+
+# Selectionner le dernier point de l'iteration
+last_point <- tail(G_20001_02_learn, 1)
+
+# Tracer le graphique avec les deux courbes et le dernier point annoté
+ggplot(G_20001_02_learn, aes(x = rank)) +
+  geom_line(aes(y = avg.genAccuracy), color = "red") +
+  geom_line(aes(y = avg.genSrate), color = "blue") +
+  geom_point(data = G_20001_02_learn[max_index_accuracy, ], aes(x = rank, y = avg.genAccuracy), color = "red", size = 3) +
+  geom_point(data = G_20001_02_learn[max_index_srate, ], aes(x = rank, y = avg.genSrate), color = "blue", size = 3) +
+  geom_point(data = last_point, aes(x = rank, y = avg.genAccuracy), color = "green", size = 3) + # Ajout du dernier point en vert
+  annotate("text", x = last_point$rank, y = last_point$avg.genAccuracy - 0.02, label = paste("Dernier point :", last_point$rank, "\navg.genAccuracy =", round(last_point$avg.genAccuracy, digits = 4), "\navg.genSrate =", round(last_point$avg.genSrate, digits = 4)), vjust = 1, hjust = 0, color = "black", size = 3) +
+  annotate("text", x = max_rank_accuracy, y = max_value_accuracy - 0.02, 
+           label = paste("Max avg.genAccuracy\niteration :", max_rank_accuracy, ", value =", round(max_value_accuracy, digits = 4)), 
+           vjust = -0.5, hjust = -0.1, color = "red", size = 3) +
+  annotate("text", x = G_20001_02_learn$rank[max_index_srate] + 10000, y = max_value_srate - 0.02, label = paste("Max avg.genSrate\niteration  :", max_rank_srate, ", value =", round(max_value_srate, digits = 4)), vjust = -0.5, hjust = 1, color = "blue", size = 3) +
+  labs(title = "Periode 20001, transmission =  0.2: evolution de la precision moyenne des \nconnaissances (avg.genAccuracy) et du succes moyen des interactions (avg.genSrate)") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 11), 
+        axis.title.y = element_text(margin = margin(t = 20)),  # Augmenter l'espace entre l'axe y et le titre
+        axis.title.x = element_text(margin = margin(t = 10)),  # Augmenter l'espace entre l'axe x et le graphique
+        axis.text.x = element_text(angle = 0, hjust = 0.5),     # Aligner horizontalement les étiquettes de l'axe x
+        plot.margin = margin(t = 20, r = 20, b = 20, l = 20)) +  # Ajuster les marges du graphique
+  scale_x_continuous(limits = c(min(G_20001_02_learn$rank), max(G_20001_02_learn$rank) + 53000), 
+                     labels = function(x) format(x, scientific = FALSE)) +  # Modifier le format de l'axe x
+  scale_y_continuous(limits = c(min(G_20001_02_learn$avg.genAccuracy, G_20001_02_learn$avg.genSrate), max(G_20001_02_learn$avg.genAccuracy, G_20001_02_learn$avg.genSrate) + 0.15)) # Augmenter les limites de l'axe y
+
+
+
+
+# Periode 20001, transmission 0.4, graphique -----
+
+# Importer les donnees
+url <- "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-0.4-learn/average.csv"
+G_20001_04_learn <- read.csv(url, header = TRUE, sep = " ")
+
+# Trouver l'indice oe avg.genAccuracy est maximale
+max_index_accuracy <- which.max(G_20001_04_learn$avg.genAccuracy)
+# Recuperer le rang correspondant e cet indice
+max_rank_accuracy <- G_20001_04_learn$rank[max_index_accuracy]
+# Recuperer la valeur de avg.genAccuracy en ce point
+max_value_accuracy <- G_20001_04_learn$avg.genAccuracy[max_index_accuracy]
+
+# Trouver l'indice oe avg.genSrate est maximale
+max_index_srate <- which.max(G_20001_04_learn$avg.genSrate)
+# Recuperer le rang correspondant e cet indice
+max_rank_srate <- G_20001_04_learn$rank[max_index_srate]
+# Recuperer la valeur de avg.genSrate e ce point
+max_value_srate <- G_20001_04_learn$avg.genSrate[max_index_srate]
+
+# Selectionner le dernier point de l'iteration
+last_point <- tail(G_20001_04_learn, 1)
+
+# Tracer le graphique avec les deux courbes et le dernier point annoté
+ggplot(G_20001_04_learn, aes(x = rank)) +
+  geom_line(aes(y = avg.genAccuracy), color = "red") +
+  geom_line(aes(y = avg.genSrate), color = "blue") +
+  geom_point(data = G_20001_04_learn[max_index_accuracy, ], aes(x = rank, y = avg.genAccuracy), color = "red", size = 3) +
+  geom_point(data = G_20001_04_learn[max_index_srate, ], aes(x = rank, y = avg.genSrate), color = "blue", size = 3) +
+  geom_point(data = last_point, aes(x = rank, y = avg.genAccuracy), color = "green", size = 3) + # Ajout du dernier point en vert
+  annotate("text", x = last_point$rank, y = last_point$avg.genAccuracy - 0.02, label = paste("Dernier point :", last_point$rank, "\navg.genAccuracy =", round(last_point$avg.genAccuracy, digits = 4), "\navg.genSrate =", round(last_point$avg.genSrate, digits = 4)), vjust = 1, hjust = 0, color = "black", size = 3) +
+  annotate("text", x = max_rank_accuracy, y = max_value_accuracy - 0.02, 
+           label = paste("Max avg.genAccuracy\niteration :", max_rank_accuracy, ", value =", round(max_value_accuracy, digits = 4)), 
+           vjust = -0.8, hjust = 0.5, color = "red", size = 3) +
+  annotate("text", x = G_20001_04_learn$rank[max_index_srate] + 10000, y = max_value_srate - 0.02, label = paste("Max avg.genSrate\niteration  :", max_rank_srate, ", value =", round(max_value_srate, digits = 4)), vjust = -0.5, hjust = 1, color = "blue", size = 3) +
+  labs(title = "Periode 20001, transmission =  0.4: evolution de la precision moyenne des \nconnaissances (avg.genAccuracy) et du succes moyen des interactions (avg.genSrate)") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 11), 
+        axis.title.y = element_text(margin = margin(t = 20)),  # Augmenter l'espace entre l'axe y et le titre
+        axis.title.x = element_text(margin = margin(t = 10)),  # Augmenter l'espace entre l'axe x et le graphique
+        axis.text.x = element_text(angle = 0, hjust = 0.5),     # Aligner horizontalement les étiquettes de l'axe x
+        plot.margin = margin(t = 20, r = 20, b = 20, l = 20)) +  # Ajuster les marges du graphique
+  scale_x_continuous(limits = c(min(G_20001_04_learn$rank), max(G_20001_04_learn$rank) + 53000), 
+                     labels = function(x) format(x, scientific = FALSE)) +  # Modifier le format de l'axe x
+  scale_y_continuous(limits = c(min(G_20001_04_learn$avg.genAccuracy, G_20001_04_learn$avg.genSrate), max(G_20001_04_learn$avg.genAccuracy, G_20001_04_learn$avg.genSrate) + 0.15)) # Augmenter les limites de l'axe y
+
+
+
+
+# Periode 20001, transmission 0.6, graphique ------
+
+# Importer les donnees
+url <- "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-0.6-learn/average.csv"
+G_20001_06_learn <- read.csv(url, header = TRUE, sep = " ")
+
+# Trouver l'indice oe avg.genAccuracy est maximale
+max_index_accuracy <- which.max(G_20001_06_learn$avg.genAccuracy)
+# Recuperer le rang correspondant e cet indice
+max_rank_accuracy <- G_20001_06_learn$rank[max_index_accuracy]
+# Recuperer la valeur de avg.genAccuracy en ce point
+max_value_accuracy <- G_20001_06_learn$avg.genAccuracy[max_index_accuracy]
+
+# Trouver l'indice oe avg.genSrate est maximale
+max_index_srate <- which.max(G_20001_06_learn$avg.genSrate)
+# Recuperer le rang correspondant e cet indice
+max_rank_srate <- G_20001_06_learn$rank[max_index_srate]
+# Recuperer la valeur de avg.genSrate e ce point
+max_value_srate <- G_20001_06_learn$avg.genSrate[max_index_srate]
+
+# Selectionner le dernier point de l'iteration
+last_point <- tail(G_20001_06_learn, 1)
+
+# Tracer le graphique avec les deux courbes et le dernier point annoté
+ggplot(G_20001_06_learn, aes(x = rank)) +
+  geom_line(aes(y = avg.genAccuracy), color = "red") +
+  geom_line(aes(y = avg.genSrate), color = "blue") +
+  geom_point(data = G_20001_06_learn[max_index_accuracy, ], aes(x = rank, y = avg.genAccuracy), color = "red", size = 3) +
+  geom_point(data = G_20001_06_learn[max_index_srate, ], aes(x = rank, y = avg.genSrate), color = "blue", size = 3) +
+  geom_point(data = last_point, aes(x = rank, y = avg.genAccuracy), color = "green", size = 3) + # Ajout du dernier point en vert
+  annotate("text", x = last_point$rank, y = last_point$avg.genAccuracy - 0.02, label = paste("Dernier point :", last_point$rank, "\navg.genAccuracy =", round(last_point$avg.genAccuracy, digits = 4), "\navg.genSrate =", round(last_point$avg.genSrate, digits = 4)), vjust = 1, hjust = 0, color = "black", size = 3) +
+  annotate("text", x = max_rank_accuracy, y = max_value_accuracy - 0.02, 
+           label = paste("Max avg.genAccuracy\niteration :", max_rank_accuracy, ", value =", round(max_value_accuracy, digits = 4)), 
+           vjust = -0.8, hjust = 0.5, color = "red", size = 3) +
+  annotate("text", x = G_20001_06_learn$rank[max_index_srate] + 10000, y = max_value_srate - 0.02, label = paste("Max avg.genSrate\niteration  :", max_rank_srate, ", value =", round(max_value_srate, digits = 4)), vjust = -0.5, hjust = 1, color = "blue", size = 3) +
+  labs(title = "Periode 20001, transmission =  0.6: evolution de la precision moyenne des \nconnaissances (avg.genAccuracy) et du succes moyen des interactions (avg.genSrate)") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 11), 
+        axis.title.y = element_text(margin = margin(t = 20)),  # Augmenter l'espace entre l'axe y et le titre
+        axis.title.x = element_text(margin = margin(t = 10)),  # Augmenter l'espace entre l'axe x et le graphique
+        axis.text.x = element_text(angle = 0, hjust = 0.5),     # Aligner horizontalement les étiquettes de l'axe x
+        plot.margin = margin(t = 20, r = 20, b = 20, l = 20)) +  # Ajuster les marges du graphique
+  scale_x_continuous(limits = c(min(G_20001_06_learn$rank), max(G_20001_06_learn$rank) + 53000), 
+                     labels = function(x) format(x, scientific = FALSE)) +  # Modifier le format de l'axe x
+  scale_y_continuous(limits = c(min(G_20001_06_learn$avg.genAccuracy, G_20001_06_learn$avg.genSrate), max(G_20001_06_learn$avg.genAccuracy, G_20001_06_learn$avg.genSrate) + 0.15)) # Augmenter les limites de l'axe y
+
+
+
+# Periode 20001, transmission 0.8, graphique ------
+
+# Importer les donnees
+url <- "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-0.8-learn/average.csv"
+G_20001_08_learn <- read.csv(url, header = TRUE, sep = " ")
+
+# Trouver l'indice oe avg.genAccuracy est maximale
+max_index_accuracy <- which.max(G_20001_08_learn$avg.genAccuracy)
+# Recuperer le rang correspondant e cet indice
+max_rank_accuracy <- G_20001_08_learn$rank[max_index_accuracy]
+# Recuperer la valeur de avg.genAccuracy en ce point
+max_value_accuracy <- G_20001_08_learn$avg.genAccuracy[max_index_accuracy]
+
+# Trouver l'indice oe avg.genSrate est maximale
+max_index_srate <- which.max(G_20001_08_learn$avg.genSrate)
+# Recuperer le rang correspondant e cet indice
+max_rank_srate <- G_20001_08_learn$rank[max_index_srate]
+# Recuperer la valeur de avg.genSrate e ce point
+max_value_srate <- G_20001_08_learn$avg.genSrate[max_index_srate]
+
+# Selectionner le dernier point de l'iteration
+last_point <- tail(G_20001_08_learn, 1)
+
+# Tracer le graphique avec les deux courbes et le dernier point annoté
+ggplot(G_20001_08_learn, aes(x = rank)) +
+  geom_line(aes(y = avg.genAccuracy), color = "red") +
+  geom_line(aes(y = avg.genSrate), color = "blue") +
+  geom_point(data = G_20001_08_learn[max_index_accuracy, ], aes(x = rank, y = avg.genAccuracy), color = "red", size = 3) +
+  geom_point(data = G_20001_08_learn[max_index_srate, ], aes(x = rank, y = avg.genSrate), color = "blue", size = 3) +
+  geom_point(data = last_point, aes(x = rank, y = avg.genAccuracy), color = "green", size = 3) + # Ajout du dernier point en vert
+  annotate("text", x = last_point$rank, y = last_point$avg.genAccuracy - 0.02, label = paste("Dernier point :", last_point$rank, "\navg.genAccuracy =", round(last_point$avg.genAccuracy, digits = 4), "\navg.genSrate =", round(last_point$avg.genSrate, digits = 4)), vjust = 1, hjust = 0, color = "black", size = 3) +
+  annotate("text", x = max_rank_accuracy, y = max_value_accuracy - 0.02, 
+           label = paste("Max avg.genAccuracy\niteration :", max_rank_accuracy, ", value =", round(max_value_accuracy, digits = 4)), 
+           vjust = -1, hjust = 0.5, color = "red", size = 3) +
+  annotate("text", x = G_20001_08_learn$rank[max_index_srate] + 10000, y = max_value_srate - 0.02, label = paste("Max avg.genSrate\niteration  :", max_rank_srate, ", value =", round(max_value_srate, digits = 4)), vjust = -0.5, hjust = 0.5, color = "blue", size = 3) +
+  labs(title = "Periode 20001, transmission =  0.8: evolution de la precision moyenne des \nconnaissances (avg.genAccuracy) et du succes moyen des interactions (avg.genSrate)") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 11), 
+        axis.title.y = element_text(margin = margin(t = 20)),  # Augmenter l'espace entre l'axe y et le titre
+        axis.title.x = element_text(margin = margin(t = 10)),  # Augmenter l'espace entre l'axe x et le graphique
+        axis.text.x = element_text(angle = 0, hjust = 0.5),     # Aligner horizontalement les étiquettes de l'axe x
+        plot.margin = margin(t = 20, r = 20, b = 20, l = 20)) +  # Ajuster les marges du graphique
+  scale_x_continuous(limits = c(min(G_20001_08_learn$rank), max(G_20001_08_learn$rank) + 53000), 
+                     labels = function(x) format(x, scientific = FALSE)) +  # Modifier le format de l'axe x
+  scale_y_continuous(limits = c(min(G_20001_08_learn$avg.genAccuracy, G_20001_08_learn$avg.genSrate), max(G_20001_08_learn$avg.genAccuracy, G_20001_08_learn$avg.genSrate) + 0.15)) # Augmenter les limites de l'axe y
+
+# Periode 20001, transmission 1, graphique ----
+
+# Importer les donnees
+url <- "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-1-learn/average.csv"
+G_20001_1_learn <- read.csv(url, header = TRUE, sep = " ")
+
+# Trouver l'indice oe avg.genAccuracy est maximale
+max_index_accuracy <- which.max(G_20001_1_learn$avg.genAccuracy)
+# Recuperer le rang correspondant e cet indice
+max_rank_accuracy <- G_20001_1_learn$rank[max_index_accuracy]
+# Recuperer la valeur de avg.genAccuracy en ce point
+max_value_accuracy <- G_20001_1_learn$avg.genAccuracy[max_index_accuracy]
+
+# Trouver l'indice oe avg.genSrate est maximale
+max_index_srate <- which.max(G_20001_1_learn$avg.genSrate)
+# Recuperer le rang correspondant e cet indice
+max_rank_srate <- G_20001_1_learn$rank[max_index_srate]
+# Recuperer la valeur de avg.genSrate e ce point
+max_value_srate <- G_20001_1_learn$avg.genSrate[max_index_srate]
+
+# Selectionner le dernier point de l'iteration
+last_point <- tail(G_20001_1_learn, 1)
+
+# Tracer le graphique avec les deux courbes et le dernier point annoté
+ggplot(G_20001_1_learn, aes(x = rank)) +
+  geom_line(aes(y = avg.genAccuracy), color = "red") +
+  geom_line(aes(y = avg.genSrate), color = "blue") +
+  geom_point(data = G_20001_1_learn[max_index_accuracy, ], aes(x = rank, y = avg.genAccuracy), color = "red", size = 3) +
+  geom_point(data = G_20001_1_learn[max_index_srate, ], aes(x = rank, y = avg.genSrate), color = "blue", size = 3) +
+  geom_point(data = last_point, aes(x = rank, y = avg.genAccuracy), color = "green", size = 3) + # Ajout du dernier point en vert
+  annotate("text", x = last_point$rank, y = last_point$avg.genAccuracy - 0.02, label = paste("Dernier point :", last_point$rank, "\navg.genAccuracy =", round(last_point$avg.genAccuracy, digits = 4), "\navg.genSrate =", round(last_point$avg.genSrate, digits = 4)), vjust = 1, hjust = 0, color = "black", size = 3) +
+  annotate("text", x = max_rank_accuracy, y = max_value_accuracy - 0.02, 
+           label = paste("Max avg.genAccuracy\niteration :", max_rank_accuracy, ", value =", round(max_value_accuracy, digits = 4)), 
+           vjust = -0.5, hjust = -0.1, color = "red", size = 3) +
+  annotate("text", x = G_20001_1_learn$rank[max_index_srate] + 10000, y = max_value_srate - 0.02, label = paste("Max avg.genSrate\niteration  :", max_rank_srate, ", value =", round(max_value_srate, digits = 4)), vjust = -0.5, hjust = 0.2, color = "blue", size = 3) +
+  labs(title = "Periode 20001, transmission =  1: evolution de la precision moyenne des \nconnaissances (avg.genAccuracy) et du succes moyen des interactions (avg.genSrate)") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 11), 
+        axis.title.y = element_text(margin = margin(t = 20)),  # Augmenter l'espace entre l'axe y et le titre
+        axis.title.x = element_text(margin = margin(t = 10)),  # Augmenter l'espace entre l'axe x et le graphique
+        axis.text.x = element_text(angle = 0, hjust = 0.5),     # Aligner horizontalement les étiquettes de l'axe x
+        plot.margin = margin(t = 20, r = 20, b = 20, l = 20)) +  # Ajuster les marges du graphique
+  scale_x_continuous(limits = c(min(G_20001_1_learn$rank), max(G_20001_1_learn$rank) + 53000), 
+                     labels = function(x) format(x, scientific = FALSE)) +  # Modifier le format de l'axe x
+  scale_y_continuous(limits = c(min(G_20001_1_learn$avg.genAccuracy, G_20001_1_learn$avg.genSrate), max(G_20001_1_learn$avg.genAccuracy, G_20001_1_learn$avg.genSrate) + 0.15)) # Augmenter les limites de l'axe y
+
+
+```
+
