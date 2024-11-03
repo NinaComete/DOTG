@@ -1,0 +1,1135 @@
+---
+title: "Analyse 20210601-DOTG_populations_random"
+date: "2024-09-26"
+author : "Nina Lendrin"
+  
+output:
+  html_document
+---
+
+<h1 style="font-size: 24px;"><b>Hypothèse initiale</b></h1>
+
+<h1 style="font-size: 18px;">L’amélioration de la précision moyenne des connaissances, au delà de celle atteinte par une population d’agent sans renouvellement, dépend uniquement de la période de renouvellement des agents, le taux de transmission étant ici aléatoire.</h1>
+
+
+<h1 style="font-size: 24px;"><b>Paramètres d’analyse (Analysis setting)</b></h1>
+
+<h1 style="font-size: 18px;">Populations caractérisées par la période de renouvellement des agents :  1 sans renouvellement d’agents (200001) et 3 avec des périodes de renouvellement différentes (5001, 10001, 20001); </h1>
+
+<h1 style="font-size: 18px;">Pour chaque période (200001, 5001, 10001, 20001), 5 populations résultant de la moyenne (average) de 10 expérimentations (runs) avec un taux de transmission aléatoire (random) sont disponibles dans l’expérimentation de Yasser Bourahla (https://sake.re/20210601-DOTG/)</h1>
+
+<h1 style="font-size: 18px;">Pour les besoins de la présente analyse, ces données ont été téléchargées et mises à disposition sur : https://github.com/NinaComete/DOTG/tree/master. Le script des analyses ci-dessous y est également disponible.</h1>.  
+
+<h1 style="font-size: 24px;"><b>Variables et populations</b></h1>
+
+independent variables: ['period']</br>
+
+dependent variables: ['Max_avg_accuracy', 'Rank_max_avg_accuracy', 'Max_avg_successRate', 'Rank_max_avg_successRate']</br>
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Importer les librairies nécessaires
+library(dplyr)
+library(readr)
+library(knitr)
+library(kableExtra)
+library(htmltools)
+library(tidyr)
+library(broom) # broom::tidy() : Convertit les résultats du test de kruskal-wallis en un format "data frame"
+library(FSA)
+library(ggplot2)
+library(patchwork)
+library(gridExtra)  # ou library(patchwork)
+library(cowplot)
+library(ggpubr)
+library(gridExtra)
+library(grid)
+ 
+# Liste des URLs des fichiers ----
+urls <- c(
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/200001-1-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/200001-0.8-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/200001-0.6-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/200001-0.4-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/200001-0.2-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/5001-1-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/5001-0.8-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/5001-0.6-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/5001-0.4-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/5001-0.2-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/10001-1-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/10001-0.8-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/10001-0.6-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/10001-0.4-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/10001-0.2-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-1-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-0.8-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-0.6-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-0.4-random/average.csv",
+  "https://raw.githubusercontent.com/NinaComete/DOTG/master/20001-0.2-random/average.csv"
+)
+
+
+# Initialiser une liste pour stocker les résultats ----
+Populations_random <- data.frame(
+  `Dossier_d_origine` = character(),
+  `Periode` = character(),
+  `Final_avg_accuracy` = numeric(),
+  `Max_avg_accuracy` = numeric(),
+  `Rank_max_avg_accuracy` = numeric(),
+  `Max_avg_successRate` = numeric(),
+  `Rank_max_avg_successRate` = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Boucle pour traiter chaque fichier
+for (url in urls) {
+  # Lire le fichier
+  data <- read.csv(url, header = TRUE, sep = " ")
+  
+  # Extraire les informations de performances
+  Final_avg_accuracy <- tail(data$avg.accuracy, n = 1)  # Dernière valeur de avg.accuracy
+  Max_avg_accuracy <- max(data$avg.accuracy, na.rm = TRUE)
+  Rank_max_avg_accuracy <- which(data$avg.accuracy == Max_avg_accuracy)[1]  # Premier rang
+
+  Max_avg_successRate <- max(data$avg.ssrate, na.rm = TRUE)
+  Rank_max_avg_successRate <- which(data$avg.ssrate == Max_avg_successRate)[1]  # Premier rang
+  
+  # Ajouter les résultats dans le tableau
+  Populations_random <- rbind(Populations_random, data.frame(
+    `Dossier_d_origine` = sub(".*/(.*)/average.csv", "\\1", url),
+    `Periode` = sub(".*/([0-9]+)-.*", "\\1", url),
+    `Final_avg_accuracy` = Final_avg_accuracy,
+    `Max_avg_accuracy` = Max_avg_accuracy,
+    `Rank_max_avg_accuracy` = Rank_max_avg_accuracy,
+    `Max_avg_successRate` = Max_avg_successRate,
+    `Rank_max_avg_successRate` = Rank_max_avg_successRate,
+    stringsAsFactors = FALSE
+  ))
+}
+
+
+# Affichage du tableau récapitulatif avec une taille de police réduite
+kable(Populations_random, format = "html", align = "c", 
+      col.names = c("Dossier_d_origine", 
+                    "Periode",
+                    "Final_avg_accuracy",
+                    "Max_avg_accuracy",
+                    "Rank_max_avg_accuracy", 
+                    "Max_avg_successRate",
+                    "Rank_max_avg_successRate"),
+      row.names = FALSE, 
+      caption = "<strong style='color:black;'>Populations moyennes (average des 10 runs par dossier d'origine) où la transmission est aléatoire (random)</strong>",
+      booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE, font_size = 10)  # Réduire la taille de police à 10 points
+
+```
+
+
+<h1 style="font-size: 24px;"><b>Populations où la transmission est aléatoire (random)</b></h1>
+
+<h2 style="font-size: 20px;"><b>Représentations graphiques et statistiques descriptives</b></h2>
+
+
+```{r, fig.width=12, fig.height=4, out.width='80%', echo=FALSE, warning=FALSE}
+
+# Initialiser une liste pour stocker les données par périodes et itérations
+combined_data <- data.frame(
+  `Periode` = character(),
+  `Iteration` = integer(),
+  `avg.accuracy` = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Boucle pour traiter chaque fichier et regrouper les données
+for (url in urls) {
+  # Lire le fichier
+  data <- read.csv(url, header = TRUE, sep = " ")
+  
+  # Extraire la période à partir de l'URL
+  periode <- sub(".*/([0-9]+)-.*", "\\1", url)
+  
+  # Ajouter une colonne Période et Iteration dans les données
+  data$Periode <- periode
+  data$Iteration <- 1:nrow(data)  # Ajout des rangs d'itérations
+  
+  # Ajouter les données au tableau combiné
+  combined_data <- rbind(combined_data, data %>%
+                           select(Periode, Iteration, avg.accuracy))
+}
+
+# Calculer la moyenne de avg.accuracy pour chaque itération et chaque période
+mean_accuracy_by_iteration <- combined_data %>%
+  group_by(Periode, Iteration) %>%
+  summarise(Mean_avg_accuracy = mean(avg.accuracy, na.rm = TRUE), .groups = "drop")
+
+# Tracer la courbe de la moyenne de avg.accuracy par période
+plot_mean_accuracy <- ggplot(mean_accuracy_by_iteration, aes(x = Iteration, y = Mean_avg_accuracy, color = Periode, group = Periode)) +
+  geom_line(size = 1) +
+  theme_minimal() +
+  labs(title = "Evolution de la moyenne, par période, des précisions moyennes (avg.accuracy)\ndans les populations où le taux de transmission est aléatoire (random)", 
+       x = "Itération", 
+       y = "Moyenne de avg.accuracy") +
+  scale_color_manual(values = c("200001" = "#FFD700",  # Jaune doré
+                                 "5001" = "#FF6347",   # Rouge 
+                                 "10001" = "#1E90FF",  # Bleu foncé
+                                 "20001" = "#32CD32")) + # Vert   
+  theme(
+    plot.title = element_text(face = "bold", size = 14, hjust = 0),  # Alignement à gauche et taille du titre
+    axis.title.x = element_text(size = 14), # Taille de la police de l'axe des x
+    axis.title.y = element_text(size = 14), # Taille de la police de l'axe des y
+    axis.text.x = element_text(size = 12),  # Taille textes de l'axe des x
+    axis.text.y = element_text(size = 12),  # Taille dtextes de l'axe des y
+    legend.text = element_text(size = 12)   # Taille légende
+  ) +
+  ylim(0, 1)  # Ajuster l'axe des ordonnées de 0 à 1
+
+# Afficher le graphique avec des dimensions ajustées
+plot_mean_accuracy
+
+
+```
+
+
+```{r echo=FALSE,warning=FALSE}
+
+# TABLEAU RECAP 
+
+# Définir l'ordre des périodes
+Populations_random$Periode <- factor(Populations_random$Periode, 
+                                     levels = c("200001", "5001", "10001", "20001"))
+
+# Calculer les moyennes et écarts types par période
+summary_table <- aggregate(cbind(Final_avg_accuracy, Max_avg_accuracy) ~ Periode, 
+                            data = Populations_random, 
+                            FUN = function(x) c(mean = mean(x), sd = sd(x)))
+
+# Transformer la structure de la table pour avoir des colonnes séparées
+summary_table <- do.call(data.frame, summary_table)
+
+# Renommer les colonnes
+colnames(summary_table) <- c("Periode", 
+                              "Moyenne de la précision finale (Final_avg_accuracy)", 
+                              "Ecart type de la précision finale (Final_avg_accuracy)",
+                              "Moyenne de la précision maximale (Max_avg_accuracy)", 
+                              "Ecart type de la précision maximale (Max_avg_accuracy)")
+
+# Affichage du tableau récapitulatif avec un joli rendu
+kable(summary_table, format = "html", align = "c", 
+      row.names = FALSE, 
+      caption = "<strong style='color:black;'>Moyennes et écarts types, par période, des précisions moyennes (avg.accuracy) finales et maximales</strong>",
+      booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE, font_size = 10)
+
+
+```
+<br> Comme l'illustrent les boîtes à moustaches ci-dessous, les moyennes et écarts types respectifs de la Précision moyenne Finale (Final_avg_accuracy) et de la Précision moyenne Maximale (Max_avg_accuracy) sont identiques pour la Période 200001 correspondant à l'absence de renouvellement d'agents. Cependant, pour les périodes de renouvellement effectif (5001, 10001, 20001), des différences de moyennes et d'  écarts-types s'observent entre ces deux variables, notamment pour la Période 5001.<br>
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, warning=FALSE}
+
+# Filtrer les données pour les périodes
+data_periodes <- Populations_random %>% 
+  filter(Periode %in% c("200001", "5001", "10001", "20001"))
+
+# Spécifiez l'ordre souhaité des périodes
+data_periodes$Periode <- factor(data_periodes$Periode, levels = c("200001", "5001", "10001", "20001"))
+
+# Charger les bibliothèques nécessaires
+library(ggplot2)
+library(cowplot)
+library(gridExtra)
+library(grid)
+
+# Créer le graphique p1 sans légende avec un axe des ordonnées commençant à 0.6
+p1 <- ggplot(data_periodes, aes(x = Periode, y = Final_avg_accuracy, fill = Periode)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Précision moyenne Finale", x = "Période", y = "Final_avg_accuracy") +
+  scale_fill_manual(values = c("200001" = "#FFD700",  # Jaune doré
+                               "5001" = "#FF6347",   # Rouge foncé
+                               "10001" = "#1E90FF",  # Bleu foncé
+                               "20001" = "#32CD32")) + 
+  theme(legend.position = "none",
+        plot.title = element_text(size = 9, face = "bold"), # Taille de la police du titre
+        axis.title = element_text(size = 9),
+        axis.text = element_text(size = 9),
+        plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"),
+        legend.title = element_text(size = 9))  +  
+  ylim(0.6, 1)  # Définir la limite inférieure et supérieure de l'axe des ordonnées 
+
+# Créer le graphique p2 sans légende avec un axe des ordonnées commençant à 0.6
+p2 <- ggplot(data_periodes, aes(x = Periode, y = Max_avg_accuracy, fill = Periode)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Précision moyenne Maximale", x = "Période", y = "Max_avg_accuracy") +
+  scale_fill_manual(values = c("200001" = "#FFD700",  
+                               "5001" = "#FF6347",   
+                               "10001" = "#1E90FF",  
+                               "20001" = "#32CD32")) + 
+  theme(legend.position = "none",
+        plot.title = element_text(size = 9, face = "bold"), # Taille de la police du titre
+        axis.title = element_text(size = 9),
+        axis.text = element_text(size = 9),
+        plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"),
+        legend.title = element_text(size = 9))  +   
+  ylim(0.6, 1)  # Définir la limite inférieure et supérieure de l'axe des ordonnées
+
+
+# Récupérer la légende
+legend <- get_legend(p1 + theme(legend.position = "right"))  # Récupérer la légende avec position verticale
+
+# Ajuster le gtable pour mettre le titre au-dessus des modalités
+legend <- gtable::gtable_add_rows(legend, heights = unit(0.5, "cm"), pos = 0)  # Ajouter de l'espace au-dessus
+
+# Créer un graphique vide comme espaceur
+empty_plot <- ggplot() + theme_void()  # Créer un graphique vide
+
+# Combiner p1 et p2 avec la légende à droite
+final_plot_with_legend <- plot_grid(p1, empty_plot, p2, empty_plot, legend, ncol = 5, rel_widths = c(1.5, 0.1, 1.5, 0.1, 0.4))
+
+# Afficher le résultat final
+print(final_plot_with_legend)
+
+```
+<br>
+<br>
+**Les périodes 10001 et 20001 de renouvellement effectif des agents présentent des moyennes de Précision moyenne Finale (0.91, 0.95) et de Précision moyenne Maximale (0.92, 0.96) supérieures à celles obtenues sans renouvellement d'agents (Période 200001, 0.86).** 
+
+**Au contraire, la période 5001 présente des moyennes de Précision moyenne Finale (0.63) et de Précision moyenne Maximale (0.67) inférieures à celles observées sans renouvellement d'agents (Période 200001, 0.86).**
+ 
+<h1 style="font-size: 24px;"><b>Tests d'hypothèses</b></h1>
+
+Pour tester son hypothèse **"Adding inter-generation transmission leads to higher accuracy than intra-generation transmission alone", Yasser Bourahla** (https://sake.re/20210601-DOTG/) effectue sur l'ensemble des populations (transmission aléatoire (random) ou contrôlée (learn)) : 
+
+1. une Analyse de variance (ANOVA) de la **Précision moyenne Finale** (ici, Final_avg_accuracy) selon la Période qui indique un effet significatif ;
+
+2. un test de Tukey permettant de spécifier que l'effet de la Période sur la Précision moyenne Finale (Final_avg_accuracy) est **significatif entre toutes les périodes**
+
+La variation de la Précision moyenne Finale (Final_avg_accuracy) étant établie (ANOVA, PR(>F) = 2.057993e-75) entre toutes les périodes (Test de Tukey, p-adj < 0.05), et les Précisions moyennes Finales des Périodes 10001 (0.91) et 20001 (0.95) étant supérieures à celles de la Période 200001 (0.86), Yasser Bourahla conclue à juste titre que son hypothèse est validée pour les Périodes 10001 et 20001. En effet, si les tests sont aussi significatifs pour la période 5001, sa Précision moyenne Finale (0.63) est inférieure à celle de la Période 200001 (0.86).
+
+**Ici, la même méthode est utilisée dans les populations où la transmission est aléatoire (random).** Afin de tester l'hypothèse assez similaire selon laquelle "l’amélioration de la précision moyenne des connaissances, au delà de celle atteinte par une population d’agents sans renouvellement, dépend uniquement de la période de renouvellement des agents", la Précision moyenne Maximale (Max_avg_accuracy) est aussi examinée. Une analyse de la variance entre les périodes (variance_inter) et au sein de chacune des périodes (variance_intra) est ajoutée afin de définir la part de la variance expliquée par la Période.
+
+<h2 style="font-size: 20px;"><b>Précision moyenne selon la période dans les populations où la transmission est aléatoire (random) </b></h2>   
+
+```{r echo=FALSE, results='asis',warning=FALSE}
+library(dplyr)
+library(kableExtra)
+library(knitr)
+
+# Filtrer les données pour les périodes
+data_periodes <- Populations_random %>% 
+  filter(Periode %in% c("200001", "5001", "10001", "20001"))
+
+# Transformer Periode en facteurs
+Populations_random$Periode <- as.factor(Populations_random$Periode)
+
+# ANOVA FINALE ACCURACY pour la Précision moyenne Finale (Final_avg_accuracy)
+anova_result_Final <- aov(Final_avg_accuracy ~ Periode, data = data_periodes)
+anova_summary_Final <- summary(anova_result_Final)
+# Résumer les résultats de l'ANOVA avec broom
+anova_table_Final <- tidy(anova_result_Final)
+
+# ANOVA MAX CCURACY  pour la Précision moyenne Maximale (Max_avg_accuracy)
+anova_result_Max <- aov(Max_avg_accuracy ~ Periode, data = data_periodes)
+anova_summary_Max <- summary(anova_result_Max)
+# Résumer les résultats de l'ANOVA avec broom
+anova_table_Max <- tidy(anova_result_Max)
+
+# Formater les p.values au format scientifique
+anova_table_Final$p.value <- formatC(anova_table_Final$p.value, format = "e", digits = 3)
+anova_table_Max$p.value <- formatC(anova_table_Max$p.value, format = "e", digits = 3)
+
+# Utiliser un tableau HTML pour disposer les deux tableaux côte à côte
+kable1 <- kable(anova_table_Final, format = "html", 
+                caption = "<b style='font-size: 12px;'>ANOVA - Précision moyenne Finale</b>", escape = FALSE) %>%
+  kable_styling(full_width = F, position = "left", bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+kable2 <- kable(anova_table_Max, format = "html", 
+                caption = "<b style='font-size: 12px;'>ANOVA - Précision moyenne Maximale</b>", escape = FALSE) %>%
+  kable_styling(full_width = F, position = "left", bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+# Utiliser cat() pour afficher les tableaux côte à côte en HTML avec Flexbox
+cat(
+  '<div style="display: flex; justify-content: space-between;">',
+  '<div style="flex: 1; padding-right: 10px;">', kable1, '</div>',
+  '<div style="flex: 1; padding-left: 10px;">', kable2, '</div>',
+  '</div>'
+)
+
+# TUKEY FINALE
+tukey_result_Final <- TukeyHSD(anova_result_Final)
+tukey_table_Final <- as.data.frame(tukey_result_Final$Periode)
+
+# Affichage tableau TUKEY FINALE
+kable3 <- kable(tukey_table_Final, format = "html", 
+                caption = "<b style='font-size: 12px;'>Test de Tukey - Précision moyenne Finale</b>", escape = FALSE) %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+# TUKEY MAXIMALE
+tukey_result_Max <- TukeyHSD(anova_result_Max)
+tukey_table_Max <- as.data.frame(tukey_result_Max$Periode)
+
+# Affichage des résultats du test de Tukey sous forme de tableau
+kable4 <- kable(tukey_table_Max, format = "html", 
+                caption = "<b style='font-size: 12px;'>Test de Tukey - Précision moyenne Maximale</b>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+# Utiliser cat() pour afficher les tableaux côte à côte en HTML avec Flexbox
+cat(
+  '<div style="display: flex; justify-content: space-between;">',
+  '<div style="flex: 1; padding-right: 10px;">', kable3, '</div>',
+  '<div style="flex: 1; padding-left: 10px;">', kable4, '</div>',
+  '</div>'
+)
+
+# VARIANCES INTRA INTER
+
+# FINAL ACCURACY
+# Calcul des variances et du rapport de variance F
+inter_variance <- anova_summary_Final[[1]]$`Mean Sq`[1]  # Variance inter-groupe
+intra_variance <- anova_summary_Final[[1]]$`Mean Sq`[2]  # Variance intra-groupe
+total_variance <- var(data_periodes$Final_avg_accuracy)
+
+# Calcul du F-ratio
+F_ratio <- inter_variance / intra_variance
+
+# Degrés de liberté
+df1 <- anova_summary_Final[[1]]$Df[1]
+df2 <- anova_summary_Final[[1]]$Df[2]
+
+# Calcul de la valeur p avec un format scientifique
+p_value <- pf(F_ratio, df1, df2, lower.tail = FALSE)
+
+# Calcul de la part de variance expliquée (R²)
+sum_squares_between <- anova_summary_Final[[1]]$`Sum Sq`[1]
+sum_squares_total <- sum_squares_between + anova_summary_Final[[1]]$`Sum Sq`[2]
+r_squared <- sum_squares_between / sum_squares_total
+
+# Création du tableau des variances avec la p-value formatée et le R²
+variance_table <- data.frame(
+  `Variance inter` = inter_variance,
+  `Variance intra` = intra_variance,
+  `Variance totale` = total_variance,
+  `F-ratio` = F_ratio,
+  `p-value` = formatC(p_value, format = "e", digits = 3),  # Format scientifique avec 3 chiffres significatifs
+  `Part de variance expliquée (R²)` = round(r_squared, 3)  # Arrondi à 3 chiffres
+)
+
+# Modification du nom de la colonne pour afficher correctement "R²"
+names(variance_table)[6] <- "R²"
+
+# Affichage du tableau des variances avec "R²" correctement formaté
+kable5 <- kable(variance_table, format = "html", 
+                caption = "<b style='font-size: 12px;'>Analyse de variance - Précision moyenne Finale</b><br><span style='font-size: 10px;'>F_ratio = Variance.inter.groupe / Variance.intra.groupe; <br>Part de variance expliquée (R²) = Variance.inter.groupe / Variance.totale</span>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+
+# MAX ACCURACY
+# Calcul des variances et du rapport de variance F
+inter_variance <- anova_summary_Max[[1]]$`Mean Sq`[1]  # Variance inter-groupe
+intra_variance <- anova_summary_Max[[1]]$`Mean Sq`[2]  # Variance intra-groupe
+total_variance <- var(data_periodes$Max_avg_accuracy)
+
+# Calcul du F-ratio
+F_ratio <- inter_variance / intra_variance
+
+# Degrés de liberté
+df1 <- anova_summary_Max[[1]]$Df[1]
+df2 <- anova_summary_Max[[1]]$Df[2]
+
+# Calcul de la valeur p avec un format scientifique
+p_value <- pf(F_ratio, df1, df2, lower.tail = FALSE)
+
+# Calcul de la part de variance expliquée (R²)
+sum_squares_between <- anova_summary_Max[[1]]$`Sum Sq`[1]
+sum_squares_total <- sum_squares_between + anova_summary_Max[[1]]$`Sum Sq`[2]
+r_squared <- sum_squares_between / sum_squares_total
+
+# Création du tableau des variances avec la p-value formatée et le R²
+variance_table <- data.frame(
+  `Variance inter` = inter_variance,
+  `Variance intra` = intra_variance,
+  `Variance totale` = total_variance,
+  `F-ratio` = F_ratio,
+  `p-value` = formatC(p_value, format = "e", digits = 3),  # Format scientifique avec 3 chiffres significatifs
+  `Part de variance expliquée (R²)` = round(r_squared, 3)  # Arrondi à 3 chiffres
+)
+
+# Modification du nom de la colonne pour afficher correctement "R²"
+names(variance_table)[6] <- "R²"
+
+# Affichage du tableau des variances avec "R²" correctement formaté
+kable6<- kable(variance_table, format = "html", 
+               caption = "<b style='font-size: 12px;'>Analyse des variances - Précision moyenne Maximale</b><br><span style='font-size: 10px;'>F_ratio = Variance.inter.groupe / Variance.intra.groupe; <br>Part de variance expliquée (R²) = Variance.inter.groupe / Variance.totale</span>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+# Utiliser cat() pour afficher les tableaux côte à côte en HTML avec Flexbox
+cat(
+  '<div style="display: flex; justify-content: space-between;">',
+  '<div style="flex: 1; padding-right: 10px;">', kable5, '</div>',
+  '<div style="flex: 1; padding-left: 10px;">', kable6, '</div>',
+  '</div>'
+)
+
+```
+Dans les populations où la transmission est aléatoire (random), la variation de la Précision moyenne Finale (Final_avg_accuracy, ANOVA, p.value = 3.918e-15), ainsi que la variation de la Précision moyenne Maximale (Max_avg_accuracy, ANOVA, Pr_F = 1.418e-14), selon la Période sont significatives et s'observent entre toutes les périodes (Test de Tukey, p adj < 0.05).
+
+**Les Précisions moyennes Finale et Maximale des Périodes 10001 (0.91, 0.92) et 20001 (0.95, 0.96) sont donc significativement supérieures à celle atteinte sans renouvellement de la population d'agents (Période 200001, 0.86), tandis que celle de la Période 5001 (0.63, 0.67) est significative inférieure.**
+
+L'analyse des variances entre périodes (variance inter) et au sein des périodes (variance intra) indique que, dans les populations où la transmission est aléatoire (random), **la Période explique 98.6% (R²) de la variance de la Précision moyenne Finale et 98.4% (R²) de la variance de la Précision moyenne Maximale.**
+
+**L'hypothèse est validée pour les Périodes 10001 et 20001.** 
+ 
+Cependant, les tests paramétriques (ANOVA, Tukey) se basent sur les moyennes des valeurs et supposent que les données suivent une distribution normale, qui n'est pas vérifiée ici.
+
+C'est pourquoi il est proposé de réaliser des tests non paramétriques (Kruskal-Wallis, Dunn) qui, parce qu'ils se basent sur les rangs des données plutôt que sur les valeurs absolues, ne reposent pas sur l'hypothèse de la normalité des distributions.<br>
+
+<h2 style="font-size: 20px;"><b>Tests non paramétriques (i.e. sans hypothèse sur la normalité des distributions)</b></h2>
+
+Les tests de Kruskal-Wallis et de Dunn s'appuient sur le rang pour comparer les distributions. Il n'est donc pas nécessaire que les données utilisées soient normalement distribuées, il suffit que les catégories (ici les périodes) soient de type ordinal (i.e. puissent être triées, ce qui est le cas puisque 5001 < 10001 < 20001 < 200001). 
+
+Le test de Kruskal-Wallis permet de déterminer si au moins deux groupes diffèrent, le  test de Dunn (correction Bonferroni) indique quels sont les groupes qui diffèrent lorsque le test de kruskal-wallis est significatif.<br>
+
+```{r echo=FALSE,results='asis',warning=FALSE}
+
+# FINAL ACCURACY Kruskal-Wallis 
+kruskal_test_Final <- kruskal.test(Final_avg_accuracy ~ Periode, data = data_periodes)
+# Transformer les résultats en data frame
+kruskal_results_Final <- tidy(kruskal_test_Final)
+
+# Afficher les résultats sous forme de joli tableau
+kable7 <- kable(kruskal_results_Final, format = "html", 
+                caption = "<b style='font-size: 12px;'>Test de Kruskal-Wallis - Précision moyenne Finale</b>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+# MAX ACCURACY Kruskal-Wallis 
+kruskal_test_Max <- kruskal.test(Max_avg_accuracy ~ Periode, data = data_periodes)
+# Transformer les résultats en data frame
+kruskal_results_Max <- tidy(kruskal_test_Max)
+
+# Afficher les résultats sous forme de joli tableau
+kable8 <- kable(kruskal_results_Max, format = "html", 
+                caption = "<b style='font-size: 12px;'>Test de Kruskal-Wallis - Précision moyenne Maximale</b>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+# Utiliser cat() pour afficher les tableaux côte à côte en HTML avec Flexbox
+cat(
+  '<div style="display: flex; justify-content: space-between;">',
+  '<div style="flex: 1; padding-right: 10px;">', kable7, '</div>',
+  '<div style="flex: 1; padding-left: 10px;">', kable8, '</div>',
+  '</div>'
+)
+
+
+# FINAL ACCURACY DUNN avec correction de Bonferroni
+dunn_test_Final <- dunnTest(Final_avg_accuracy ~ Periode, data = data_periodes, method = "bonferroni")
+# Extraire les résultats du test et les convertir en data frame
+dunn_results_Final <- as.data.frame(dunn_test_Final$res)
+
+# Afficher les résultats dans un joli tableau HTML
+kable9 <- kable(dunn_results_Final, format = "html", 
+      caption = "<b style='font-size: 12px;'>Test de Dunn - Précision moyenne Finale</b>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+# MAX ACCURACY DUNN avec correction de Bonferroni
+dunn_test_Max <- dunnTest(Max_avg_accuracy ~ Periode, data = data_periodes, method = "bonferroni")
+
+# Extraire les résultats du test et les convertir en data frame
+dunn_results_Max <- as.data.frame(dunn_test_Max$res)
+
+# Afficher les résultats dans un joli tableau HTML
+kable10 <- kable(dunn_results_Max, format = "html", 
+                 caption = "<b style='font-size: 12px;'>Test de Dunn - Précision moyenne Maximale</b>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+# Utiliser cat() pour afficher les tableaux côte à côte en HTML avec Flexbox
+cat(
+  '<div style="display: flex; justify-content: space-between;">',
+  '<div style="flex: 1; padding-right: 10px;">', kable9, '</div>',
+  '<div style="flex: 1; padding-left: 10px;">', kable10, '</div>',
+  '</div>'
+)
+
+```
+
+Les résultats aux tests de Kruskal-Wallis et de Dunn sont les mêmes pour la Précision moyenne Finale (Final_avg_accuracy) et la Précision moyenne Maximale (Max_avg_accuracy).
+
+Le test de Kruskal-Wallis indique que la variation des précisions moyennes (Finale ou Maximale) selon la Période est significative (p.value = 0.0004707), ce qui signifie que les distributions des rangs des précisions moyennes diffèrent entre les périodes.
+
+Le test non paramétrique de Dunn (avec correction Bonferroni) révèle que **les précisions moyennes (Finale ou Maximale) sont significativement différentes entre les périodes 20001 et 200001 (P.adj = 0.0451579), mais pas entre les périodes 10001 et 200001 (P.adj = 1.0000000)**.<br>   
+ 
+Autrement dit, les précisions moyennes (Finale et Maximale) de la Période 10001 diffèrent significativement de celles de la Période 200001 en termes de valeurs absolues (comme le montrent l'ANOVA et le test de Tukey), mais pas en termes de distribution relative (i.e., comment les valeurs se classent les unes par rapport aux autres).  
+
+Par suite, l'hypothèse selon laquelle la période de renouvellement explique l’amélioration de la précision moyenne, au-delà de celle atteinte par une population sans renouvellement d’agents (Période 200001, 0.86), est **validée pour la Période 20001 (0.96) mais nécessite une analyse plus approfondie pour la Période 10001 (0.92)**.
+
+C'est pourquoi, il est maintenant proposé d'examiner le Rang d'atteinte (Rank_max_avg_accuracy) de la Précision moyenne Maximale (celui de la Précision moyenne Finale étant le dernier par définition).
+
+
+<h2 style="font-size: 20px;"><b>Rang d'atteinte de la précision moyenne maximale (Rank_max_avg_accuracy) selon la période</b></h2>
+
+```{r echo=FALSE,warning=FALSE}
+# TABLEAU RECAP 
+
+# Définir l'ordre des périodes
+Populations_random$Periode <- factor(Populations_random$Periode, 
+                                     levels = c("200001", "5001", "10001", "20001"))
+
+# Calculer les moyennes et écarts types par période
+summary_table <- aggregate(cbind(Rank_max_avg_accuracy) ~ Periode, 
+                            data = Populations_random, 
+                            FUN = function(x) c(mean = mean(x), sd = sd(x)))
+
+# Transformer la structure de la table pour avoir des colonnes séparées
+summary_table <- do.call(data.frame, summary_table)
+
+# Renommer les colonnes
+colnames(summary_table) <- c("Periode", 
+                              "Moyenne du Rang d'atteinte de la précision moyenne maximale (Rank_max_avg_accuracy)", 
+                              "Ecart type du Rang d'atteinte de la précision moyenne maximale (Rank_max_avg_accuracy)")
+
+# Arrondir à un chiffre après la virgule dans le tableau
+summary_table <- summary_table %>% 
+  mutate(across(where(is.numeric), ~ round(., 1)))
+
+# Affichage du tableau récapitulatif avec un joli rendu
+kable(summary_table, format = "html", align = "c", 
+      row.names = FALSE, 
+      caption = "<strong style='color:black;'>Moyennes et écarts types, par période, du Rang d'atteinte de la précision moyenne maximale</strong>",
+      booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE, font_size = 10)
+
+
+```
+
+```{r, echo=FALSE, , fig.width=10, fig.height=4, warning=FALSE}
+
+# Spécifiez l'ordre souhaité des périodes
+data_periodes$Periode <- factor(data_periodes$Periode, levels = c("200001", "5001", "10001", "20001"))
+
+# GRAPHIQUE BOX PLOT avec couleurs  
+g1 <- ggplot(data_periodes, aes(x = Periode, y = Rank_max_avg_accuracy, fill = Periode)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Rang d'atteinte de la Précision moyenne Maximale selon la Période", 
+       x = "Période", 
+       y = "Rank_max_avg_accuracy") +
+  scale_fill_manual(values = c("200001" = "#FFD700",  # Jaune doré
+                               "5001" = "#FF6347",   # Rouge foncé
+                               "10001" = "#1E90FF",  # Bleu foncé
+                               "20001" = "#32CD32")) +  # Vert citron
+  theme(legend.position = "right",
+        plot.title = element_text(size = 9, face = "bold"), # Taille de la police du titre
+        axis.title = element_text(size = 9),
+        axis.text = element_text(size = 9),
+        plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"),
+        legend.title = element_text(size = 9))
+
+
+# GRAPHIQUE DE DISPERSION de la Précision moyenne Maximale en fonction de son Rang d'atteinte
+g2 <- ggplot(Populations_random, aes(x = Rank_max_avg_accuracy, y = Max_avg_accuracy, color = Periode)) +
+  geom_point() +
+  labs(
+    title = "Précision moyenne Maximale selon son Rang d'atteinte et la Période",
+    x = "Rang d'atteinte de la précision moyenne maximale (Rank_max_avg_accuracy)",     # Nouveau nom pour l'axe X
+    y = "Précision moyenne maximale (Max_avg_accuracy)"               # Nouveau nom pour l'axe Y
+  ) +
+  theme_minimal() +
+ theme(legend.position = "right",
+        plot.title = element_text(size = 9, face = "bold"), # Taille de la police du titre
+        axis.title = element_text(size = 9),
+        axis.text = element_text(size = 9),
+        plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"),
+        legend.title = element_text(size = 9)) +
+  scale_color_manual(values = c(
+    "200001" = "#FFD700",   # Or
+    "5001" = "#FF6347",     # Tomate
+    "10001" = "#1E90FF",    # Bleu dodger
+    "20001" = "#32CD32"     # Vert citron
+  ))
+
+
+# Créer un graphique vide comme espaceur
+empty_plot <- ggplot() + theme_void()  # Créer un graphique vide
+
+# Combiner p1 et p2 avec la légende à droite
+final_plot <- plot_grid(g1, empty_plot, g2, ncol = 3, rel_widths = c(3.5, 0.5, 3.5))
+
+# Afficher le résultat final
+print(final_plot)
+
+```
+
+<br>Les statistiques descriptives ci-dessus montrent que le Rang d'atteinte de la précision moyenne maximale (Rank_max_avg_accuracy) conserve une grande variance au sein des périodes 5001 et 10001, ce qui explique pourquoi la différence de Précision moyenne Maximale (Max_avg_accuracy) entre la période 10001 et 200001 est significative avec le test de Tukey (200001-10001, p adj = 0.0000414) et ne l'est pas avec le test non paramétrique de Dunn (10001-200001, P.adj = 1).<br>
+ 
+**Tests non paramétriques**<br>
+
+```{r echo=FALSE,warning=FALSE}
+
+# Effectuer le test de Kruskal-Wallis
+kruskal_test <- kruskal.test(Rank_max_avg_accuracy ~ Periode, data = data_periodes)
+
+# Transformer les résultats en data frame
+kruskal_results <- tidy(kruskal_test)
+
+# Afficher les résultats sous forme de joli tableau
+kable(kruskal_results, format = "html", caption = "<b style='font-size: 12px;'>Test de Kruskal-Wallis - Rang d’atteinte de la précision moyenne maximale</b>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed")) %>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+# Effectuer le test de Dunn avec correction de Bonferroni
+dunn_test <- dunnTest(Rank_max_avg_accuracy ~ Periode, data = data_periodes, method = "bonferroni")
+
+# Extraire les résultats du test et les convertir en data frame
+dunn_results <- as.data.frame(dunn_test$res)
+
+# Afficher les résultats dans un joli tableau HTML
+kable(dunn_results, format = "html", caption = "<b style='font-size: 12px;'>Test de Dunn - Rang d’atteinte de la précision moyenne maximale</b>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+```
+
+Le Rang d'atteinte de la précision moyenne maximale (Rank_max_avg_accuracy) est significativement différent selon la Période (Kruskal-Wallis, p.value = 0.0035316). Le test de Dunn (avec correction Bonferroni) permet de préciser que la différence significative du Rang d'atteinte de la précision moyenne maximale (Rank_max_avg_accuracy) s'observe entre les périodes 10001-200001 (p.adj = 0.0326639) et 20001-200001 (p.adj = 0.0066709). Autrement dit, **le Rang d'atteinte de la précision moyenne maximale (Rank_max_avg_accuracy) des Périodes 10001 (151949) et 20001 (179046) est significiativement supérieur à celui observé sans renouvellement d'agents (Période 200001, 27923)**.<br>
+
+**L'hypothèse initiale est donc aussi validée avec les tests non paramétriques**, comme le confirment les tests de robustesse de l'ANOVA ci-dessous.
+
+<h2 style="font-size: 20px;"><b>Tests de robustesse de l'ANOVA sur la Précision moyenne Maximale (Max_avg_accuracy)</b></h2>
+
+```{r echo=FALSE,warning=FALSE}
+
+# 5. Vérification des hypothèses d'ANOVA (normalité et homocédasticité)
+# Test de Shapiro-Wilk pour normalité des résidus
+shapiro_test <- shapiro.test(residuals(anova_result_Max))
+
+# Créer un tableau pour le test de Shapiro-Wilk
+shapiro_table <- data.frame(
+  Statistic = shapiro_test$statistic,
+  p_value = shapiro_test$p.value
+)
+rownames(shapiro_table) <- "Shapiro-Wilk"
+
+# Test de Bartlett pour l'homogénéité des variances
+bartlett_test <- bartlett.test(Max_avg_accuracy ~ Periode, data = data_periodes)
+
+# Créer un tableau pour le test de Bartlett
+bartlett_table <- data.frame(
+  Statistic = bartlett_test$statistic,
+  p_value = bartlett_test$p.value
+)
+rownames(bartlett_table) <- "Bartlett"
+
+# Combiner les deux tableaux
+hypothesis_tests <- rbind(shapiro_table, bartlett_table)
+
+# Affichage des résultats des tests d'hypothèses
+kable(hypothesis_tests, caption = "") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+```
+Les resultats des tests ci-dessus permettent de ne pas rejeter les hypothèses de normalité des résidus (Shapiro-Wilk p-value = 0.4930905 > 0.05) et de l'homogénéité des variances intra (Bartlett p-value = 0.5517938 > 0.05), ce qui permet de valider la pertinence de l'ANOVA pour l'analyse de la variance de Précision moyenne Maximale (Max_avg_accuracy) selon les Périodes.
+
+C'est pourquoi il est proposé d'examiner la variance de la Précison moyenne Maximale (Max_avg_accuracy) selon son Rang d'atteinte (Rank_max_avg_accuracy) et la Période, ainsi que l'effet possible de l'interaction de ces deux variables sur la Précison moyenne Maximale (Max_avg_accuracy).
+
+```{r echo=FALSE,warning=FALSE}
+
+# S'assurer que les variables sont correctement typées
+Populations_random$Periode <- as.factor(Populations_random$Periode)  # Convertir Periode en facteur
+Populations_random$Rank_max_avg_accuracy <- as.numeric(Populations_random$Rank_max_avg_accuracy)  # Assurer que c'est numérique
+
+# Effectuer l'ANOVA à deux facteurs avec Rank_max_avg_accuracy comme covariable
+anova_results <- aov(Max_avg_accuracy ~ Periode * Rank_max_avg_accuracy, data = Populations_random)
+
+
+# Résumé des résultats de l'ANOVA
+anova_summary <- summary(anova_results)
+
+# Convertir le résumé de l'ANOVA en data frame pour l'affichage dans un tableau
+anova_table <- as.data.frame(anova_summary[[1]])
+
+# Ajouter une colonne avec les noms des facteurs
+anova_table$Factor <- rownames(anova_table)
+
+# Réorganiser les colonnes pour placer "Factor" en premier
+anova_table <- anova_table[, c("Factor", "Df", "Sum Sq", "Mean Sq", "F value", "Pr(>F)")]
+
+# Afficher les résultats de l'ANOVA  
+kable(anova_table, caption = "<b style='font-size: 12px;'>ANOVA : Précision  moyenne Maximale selon son Rang d'atteinte et la Période</b>") %>%
+  kable_styling(full_width = F, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+  
+```
+
+Il a été montré plus haut que le Rang d'atteinte de la précision moyenne maximale (Rank_max_avg_accuracy) est significativement différent selon la Période (Kruskal-Wallis, p.value = 0.0035316) et plus précisémment entre les périodes 10001-200001 (Dunn, p.adj = 0.0326639) et 20001-200001 (Dunn, p.adj = 0.0066709). 
+
+Cependant, **le Rang d’atteinte de la précision moyenne maximale (Rank_max_avg_accuracy) n'a pas d'effet significatif sur la variance de la Précision moyenne Maximale (Max_avg_accuracy) elle-même (Anova, Pr(>F) = 0.6127592)**. De plus, l'interaction de la Période et du Rang d'atteinte de la Précison moyenne Maximale (Rank_max_avg_accuracy) n'a pas non plus d'effet significatif sur la Précision moyenne Maximale (Pr(>F) = 0.4205027).
+
+<h2 style="font-size: 20px;"><b>Différence entre Précision moyenne Maximale et Précision moyenne Finale selon la Période</b></h2>
+
+Il a été observé plus haut que les résultats aux tests de Kruskal-Wallis et de Dunn sont les mêmes pour la Précision moyenne Finale (Final_avg_accuracy) et la Précision moyenne Maximale (Max_avg_accuracy). Autrement dit, ces deux variables ne diffèrent pas en termes de distribution sur le rang, mais diffèrent en termes de valeurs absolues.   
+
+En effet, les statistiques descriptives présentées en première partie montrent que ces deux variables sont identiques pour la Période 200001 correspondant à l'absence de renouvellement des agents, mais une différence entre les moyennes et les écart-types de ces deux variables s'observent notamment pour la Période 5001.
+
+C'est pourquoi il est proposé de poursuivre l'analyse de la variance de la Différence entre ces deux mesures selon la Période.
+
+```{r echo=FALSE,warning=FALSE}
+
+# Ajouter la colonne Difference dans la table Populations_random
+Populations_random <- Populations_random %>%
+  mutate(Difference = Max_avg_accuracy - Final_avg_accuracy)
+
+# Filtrer les données pour les périodes
+data_periodes <- Populations_random %>% 
+  filter(Periode %in% c("200001", "5001", "10001", "20001"))
+
+# Statistiques descriptives Max_avg_accuracy - Final_avg_accuracy par période 
+descriptive_stats_difference <- data_periodes %>%
+  group_by(Periode) %>%
+  summarise(
+    Mean_Max = mean(Max_avg_accuracy, na.rm = TRUE),  # Moyenne de Max_avg_accuracy
+    Mean_Final = mean(Final_avg_accuracy, na.rm = TRUE),  # Moyenne de Final_avg_accuracy
+    Difference = mean(Difference, na.rm = TRUE),  # Différence moyenne entre les deux
+    Count = n(),  # Compte le nombre d'entrées
+    .groups = 'drop' # Pour éviter un avertissement sur le regroupement
+  )
+
+# Créer un joli tableau avec kable sans header supplémentaire
+kable(descriptive_stats_difference, format = "html", 
+      caption = "<b style='font-size: 14px;color: black;'>Difference entre précisions moyennes Maximale et Finale</b><br><span style='font-weight: bold; font-size: 10px;color: black;'> = mean(Max_avg_accuracy) - mean(Final_avg_accuracy)</span></b> ") %>%
+  kable_styling(full_width = FALSE, 
+                position = "left", 
+                bootstrap_options = c("striped", "hover", "responsive"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+
+```
+
+```{r echo=FALSE,warning=FALSE}
+
+# ANOVA DIFFERENCE pour la Précision moyenne maximale (Max_avg_accuracy)
+anova_result_diff <- aov(Difference ~ Periode, data = data_periodes)
+anova_summary_diff <- summary(anova_result_diff)
+anova_table_diff <- data.frame(
+  Df = anova_summary_diff[[1]]$Df,
+  Sum_Sq = anova_summary_diff[[1]]$`Sum Sq`,
+  Mean_Sq = anova_summary_diff[[1]]$`Mean Sq`,
+  F_value = anova_summary_diff[[1]]$`F value`,
+  Pr_F = formatC(anova_summary_diff[[1]]$`Pr(>F)`, format = "e", digits = 3)
+)
+
+# Affichage du tableau ANOVA DIFFERENCE
+kable(anova_table_diff, format = "html", caption = "<b style='font-size: 12px;'>ANOVA - Difference entre précisions moyennes Maximale et Finale</b>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+
+# TUKEY DIFFERENCE
+tukey_result_diff <- TukeyHSD(anova_result_diff)
+tukey_table_diff <- as.data.frame(tukey_result_diff$Periode)
+
+# Affichage des résultats du test de Tukey sous forme de tableau
+kable(tukey_table_diff, format = "html", caption = "<b style='font-size: 12px;'>Test de Tukey: Difference entre précisions moyennes Maximale et Finale</b>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+# Calcul des variances et du rapport de variance F
+inter_variance <- anova_summary_diff[[1]]$`Mean Sq`[1]  # Variance inter-groupe
+intra_variance <- anova_summary_diff[[1]]$`Mean Sq`[2]  # Variance intra-groupe
+total_variance <- var(data_periodes$Difference)
+
+# Calcul du F-ratio
+F_ratio <- inter_variance / intra_variance
+
+# Degrés de liberté
+df1 <- anova_summary_diff[[1]]$Df[1]
+df2 <- anova_summary_diff[[1]]$Df[2]
+
+# Calcul de la valeur p avec un format scientifique
+p_value <- pf(F_ratio, df1, df2, lower.tail = FALSE)
+
+# Calcul de la part de variance expliquée (R²)
+sum_squares_between <- anova_summary_diff[[1]]$`Sum Sq`[1]
+sum_squares_total <- sum_squares_between + anova_summary_diff[[1]]$`Sum Sq`[2]
+r_squared <- sum_squares_between / sum_squares_total
+
+# Création du tableau des variances avec la p-value formatée et le R²
+variance_table <- data.frame(
+  `Variance inter-groupe` = inter_variance,
+  `Variance intra-groupe` = intra_variance,
+  `Variance totale` = total_variance,
+  `F-ratio` = F_ratio,
+  `p-value` = formatC(p_value, format = "e", digits = 3),  # Format scientifique avec 3 chiffres significatifs
+  `Part de variance expliquée (R²)` = round(r_squared, 3)  # Arrondi à 3 chiffres
+)
+
+# Modification du nom de la colonne pour afficher correctement "R²"
+names(variance_table)[6] <- "R²"
+
+# Affichage du tableau des variances avec "R²" correctement formaté
+kable(variance_table, format = "html", caption = "<b style='font-size: 12px;'>Analyse des variances - Difference entre précisions moyennes Maximale et Finale  selon la Période<br><span style='font-size: 10px;'>F_ratio = Variance.inter.groupe / Variance.intra.groupe; <br>Part de variance expliquée (R²) = Variance.inter.groupe / Variance.totale</span>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+```
+
+**La Différence, entre précisions moyennes Maximale et Finale, varie significativement selon la période (ANOVA, Pr_F = 9.180e-07) et plus précisémment entre la Période 5001 et les autres Périodes (test de Tukey, p-adj < 0.05).** 
+
+C'est pourquoi il est maintenant proposé de réaliser une analyse de la variance de la Précison moyenne Maximale (Max_avg_accuracy) selon son Rang d'atteinte, la Période, et la Difference entre précisions moyennes Maximale et Finale.
+
+
+```{r echo=FALSE,warning=FALSE}
+
+# S'assurer que les variables sont correctement typées
+Populations_random$Periode <- as.factor(Populations_random$Periode)  # Convertir Periode en facteur
+Populations_random$Rank_max_avg_accuracy <- as.numeric(Populations_random$Rank_max_avg_accuracy)  # Assurer que c'est numérique
+Populations_random$Final_avg_accuracy <- as.numeric(Populations_random$Final_avg_accuracy)  # Assurer que c'est numérique
+
+# Calculer la différence entre la Précision moyenne Finale et la Précision moyenne Maximale
+Populations_random$Difference <- Populations_random$Final_avg_accuracy - Populations_random$Max_avg_accuracy
+
+# Effectuer l'ANOVA à trois facteurs
+anova_results <- aov(Max_avg_accuracy ~ Periode + Rank_max_avg_accuracy + Difference, data = Populations_random)
+
+# ANOVA avec interactions (si souhaité)
+# anova_results <- aov(Max_avg_accuracy ~ Periode * Rank_max_avg_accuracy * Difference, data = Populations_random)
+
+# Résumé des résultats de l'ANOVA
+anova_summary <- summary(anova_results)
+
+# Convertir le résumé de l'ANOVA en data frame pour l'affichage dans un tableau
+anova_table <- as.data.frame(anova_summary[[1]])
+
+# Ajouter une colonne avec les noms des facteurs
+anova_table$Factor <- rownames(anova_table)
+
+# Réorganiser les colonnes pour placer "Factor" en premier
+anova_table <- anova_table[, c("Factor", "Df", "Sum Sq", "Mean Sq", "F value", "Pr(>F)")]
+
+# Afficher les résultats de l'ANOVA  
+kable(anova_table, caption = "<b style='font-size: 12px;'>ANOVA : Précision  moyenne Maximale selon son Rang d'atteinte, la Période et la Différence entre précisions moyenne Maximale et Finale</b>") %>%
+  kable_styling(full_width = F, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+
+
+```
+
+**Seule la Période a un effet significatif (p-value = 0) sur la variance de la Précision moyenne Maximale (Max_avg_accuracy).**
+
+Cependant, le Taux de succès moyen (Max_avg_successRate) n'a pas encore été examiné.
+
+C'est pourquoi, une analyse de la variance de la Précison moyenne Maximale (Max_avg_accuracy) selon le Taux de succès moyen est maintenant proposée.
+
+<h2 style="font-size: 20px;"><b>Taux de succès moyen</b></h2>
+
+```{r echo=FALSE,warning=FALSE}
+
+# S'assurer que les variables sont correctement typées
+Populations_random$Periode <- as.factor(Populations_random$Periode)  # Convertir Periode en facteur
+Populations_random$Max_avg_successRate <- as.numeric(Populations_random$Max_avg_successRate)  # Assurer que c'est numérique
+
+# Effectuer l'ANOVA interaction à deux facteurs  
+anova_results <- aov(Max_avg_accuracy ~ Max_avg_successRate, data = Populations_random)
+
+# Résumé des résultats de l'ANOVA
+anova_summary <- summary(anova_results)
+
+# Convertir le résumé de l'ANOVA en data frame pour l'affichage dans un tableau
+anova_table <- as.data.frame(anova_summary[[1]])
+
+# Ajouter une colonne avec les noms des facteurs
+anova_table$Factor <- rownames(anova_table)
+
+# Réorganiser les colonnes pour placer "Factor" en premier
+anova_table <- anova_table[, c("Factor", "Df", "Sum Sq", "Mean Sq", "F value", "Pr(>F)")]
+
+# Afficher les résultats de l'ANOVA  
+kable(anova_table, caption = "<b style='font-size: 12px;'>ANOVA - Précision moyenne Maximale selon le Taux de succès moyen</b>") %>%
+  kable_styling(full_width = F, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+
+```
+L'ANOVA ci-dessus indique  un effet significatif du Taux de succès moyen (Max_avg_successRate) sur la Précision moyenne maximale (Max_avg_accuracy) avec Pr(>F) = 0.0007311.
+
+Néanmoins, puisque ces deux variables sont dépendantes de la Période (qui est ici la seule variable indépendante), cet effet du Taux de succès moyen sur la Précision moyenne maximale pourrait être principalement induit par leur dépendance commune à la Période.
+
+**Taux de succès selon la Période**
+```{r echo=FALSE,warning=FALSE}
+
+# ANOVA TAUX DE SUCCES  (Max_avg_successRate)
+anova_result_success <- aov(Max_avg_successRate ~ Periode, data = data_periodes)
+anova_summary_success <- summary(anova_result_success)
+anova_table_success <- data.frame(
+  Df = anova_summary_success[[1]]$Df,
+  Sum_Sq = anova_summary_success[[1]]$`Sum Sq`,
+  Mean_Sq = anova_summary_success[[1]]$`Mean Sq`,
+  F_value = anova_summary_success[[1]]$`F value`,
+  Pr_F = formatC(anova_summary_success[[1]]$`Pr(>F)`, format = "e", digits = 3)
+)
+
+# Affichage du tableau ANOVA TAUX DE SUCCES
+kable(anova_table_success, format = "html", caption = "<b style='font-size: 14px;'>ANOVA - Taux de succès </b>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+
+# TUKEY TAUX DE SUCCES
+tukey_result_success <- TukeyHSD(anova_result_success)
+tukey_table_success <- as.data.frame(tukey_result_success$Periode)
+
+# Affichage des résultats du test de Tukey sous forme de tableau
+kable(tukey_table_success, format = "html", caption = "<b style='font-size: 14px;'>Test de Tukey - Taux de succès</b>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+# Calcul des variances et du rapport de variance F
+inter_variance <- anova_summary_success[[1]]$`Mean Sq`[1]  # Variance inter-groupe
+intra_variance <- anova_summary_success[[1]]$`Mean Sq`[2]  # Variance intra-groupe
+total_variance <- var(data_periodes$Max_avg_successRate)
+
+# Calcul du F-ratio
+F_ratio <- inter_variance / intra_variance
+
+# Degrés de liberté
+df1 <- anova_summary_success[[1]]$Df[1]
+df2 <- anova_summary_success[[1]]$Df[2]
+
+# Calcul de la valeur p avec un format scientifique
+p_value <- pf(F_ratio, df1, df2, lower.tail = FALSE)
+
+# Calcul de la part de variance expliquée (R²)
+sum_squares_between <- anova_summary_success[[1]]$`Sum Sq`[1]
+sum_squares_total <- sum_squares_between + anova_summary_success[[1]]$`Sum Sq`[2]
+r_squared <- sum_squares_between / sum_squares_total
+
+# Création du tableau des variances avec la p-value formatée et le R²
+variance_table <- data.frame(
+  `Variance inter-groupe` = inter_variance,
+  `Variance intra-groupe` = intra_variance,
+  `Variance totale` = total_variance,
+  `F-ratio` = F_ratio,
+  `p-value` = formatC(p_value, format = "e", digits = 3),  # Format scientifique avec 3 chiffres significatifs
+  `Part de variance expliquée (R²)` = round(r_squared, 3)  # Arrondi à 3 chiffres
+)
+
+# Modification du nom de la colonne pour afficher correctement "R²"
+names(variance_table)[6] <- "R²"
+
+# Affichage du tableau des variances avec "R²" correctement formaté
+kable(variance_table, format = "html", caption = "<b style='font-size: 14px;'>Analyse des variances - Taux de succès<br><span style='font-size: 10px;'>F_ratio = Variance.inter.groupe / Variance.intra.groupe; <br>Part de variance expliquée (R²) = Variance.inter.groupe / Variance.totale</span>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+
+```
+En effet, les analyses ci-dessus indiquent un effet très significatif de la Période sur la variance du Taux de succès (Anova, pr_F = 1.396e-24) et qui s'observe entre toutes les Périodes (Test de Tukey, p adj = 0). De plus, l'analyses des variances intra et inter groupes indique que **la Période explique 99.9% (R²) de la variance du Taux de succès moyen**.
+
+Cela explique qu'avec l'ANOVA à 2 facteurs ci-dessous, qui examine la variance de la Précision moyenne Maximale selon la Période et le Taux de succès moyen, seule la Période a un effet significatif sur la Précision moyenne maximale, tandis que l'effet du Taux de succès moyen n'est plus significatif (p-value = 0.3387694). 
+
+```{r echo=FALSE,warning=FALSE}
+
+# S'assurer que les variables sont correctement typées
+Populations_random$Periode <- as.factor(Populations_random$Periode)  # Convertir Periode en facteur
+Populations_random$Max_avg_successRate <- as.numeric(Populations_random$Max_avg_successRate)  # Assurer que c'est numérique
+
+# Effectuer l'ANOVA interaction à deux facteurs  
+anova_results <- aov(Max_avg_accuracy ~ Periode * Max_avg_successRate, data = Populations_random)
+
+# Résumé des résultats de l'ANOVA
+anova_summary <- summary(anova_results)
+
+# Convertir le résumé de l'ANOVA en data frame pour l'affichage dans un tableau
+anova_table <- as.data.frame(anova_summary[[1]])
+
+# Ajouter une colonne avec les noms des facteurs
+anova_table$Factor <- rownames(anova_table)
+
+# Réorganiser les colonnes pour placer "Factor" en premier
+anova_table <- anova_table[, c("Factor", "Df", "Sum Sq", "Mean Sq", "F value", "Pr(>F)")]
+
+# Afficher les résultats de l'ANOVA  
+kable(anova_table, caption = "<b style='font-size: 12px;'>ANOVA - Précision moyenne Maximale selon la Période et le Taux de succès moyen</b>") %>%
+  kable_styling(full_width = F, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+
+```
+
+Le Taux de succès moyen (Max_avg_successRate) n'a pas d'effet significatif sur la Précision moyenne Maximale (F value = 0.99, Pr(>F) = 0.3387694), alors que la Période influence très significativement la Précision moyenne Maximale (F value = 423.53, Pr(>F) = 0).  
+
+De plus, cette Anova à 2 facteurs indique que l'interaction de la Période avec le Taux de succes moyen n'a pas non plus d'effet significatif sur la Précision moyenne Maximale (Pr(>F) = 0.1045255). Autrement dit, **l'effet de la Période sur la Précision moyenne Maximale est indépendant du Taux de succès moyen**.
+
+<h1 style="font-size: 20px;"><b>Conclusion</b></h1>
+
+Pour conclure, il est proposé de réaliser une analyse de la variance de la Précison moyenne Maximale (Max_avg_accuracy) selon l'ensemble des variables ici considérées : son Rang d'atteinte (Rank_max_avg_accuracy), la Période, la Difference entre les moyennes des précisions moyennes maximale et finale, et le Taux de succès moyen (Max_avg_successRate).
+
+```{r echo=FALSE,warning=FALSE}
+
+# S'assurer que les variables sont correctement typées
+Populations_random$Periode <- as.factor(Populations_random$Periode)  # Convertir Periode en facteur
+Populations_random$Rank_max_avg_accuracy <- as.numeric(Populations_random$Rank_max_avg_accuracy)  # Assurer que c'est numérique
+Populations_random$Max_avg_successRate <- as.numeric(Populations_random$Max_avg_successRate)  # Assurer que c'est numérique
+Populations_random$Final_avg_accuracy <- as.numeric(Populations_random$Final_avg_accuracy)  # Assurer que c'est numérique
+
+# Calculer la différence entre la Précision moyenne Finale et la Précision moyenne Maximale
+Populations_random$Difference <- Populations_random$Final_avg_accuracy - Populations_random$Max_avg_accuracy
+
+# Effectuer l'ANOVA à quatre facteurs
+anova_results <- aov(Max_avg_accuracy ~ Periode + Rank_max_avg_accuracy + Max_avg_successRate + Difference, data = Populations_random)
+
+# ANOVA avec interactions (si souhaité)
+# anova_results <- aov(Max_avg_accuracy ~ Periode * Rank_max_avg_accuracy * Max_avg_successRate * Difference, data = Populations_random)
+
+# Résumé des résultats de l'ANOVA
+anova_summary <- summary(anova_results)
+
+# Convertir le résumé de l'ANOVA en data frame pour l'affichage dans un tableau
+anova_table <- as.data.frame(anova_summary[[1]])
+
+# Ajouter une colonne avec les noms des facteurs
+anova_table$Factor <- rownames(anova_table)
+
+# Réorganiser les colonnes pour placer "Factor" en premier
+anova_table <- anova_table[, c("Factor", "Df", "Sum Sq", "Mean Sq", "F value", "Pr(>F)")]
+
+# Afficher les résultats de l'ANOVA  
+kable(anova_table, caption = "<b style='font-size: 12px;'>ANOVA - Précision moyenne Maximale selon son Rang d'atteinte, la Période, la Différence entre précisions moyennes maximale et finale, et le Taux de succès moyen</b>") %>%
+  kable_styling(full_width = F, bootstrap_options = c("striped", "hover", "condensed"))%>%
+  kable_styling(font_size = 10)  # Réduire la taille des polices
+
+
+```
+
+**Seule la Période a un effet significatif (très significatif, p-value = 0) sur la variance de la Précision moyenne Maximale (Max_avg_accuracy).**
+
+Il a ainsi été établi que  :
+
+- le Rang d'atteinte de la précision moyenne maximale (Rank_max_avg_accuracy) est significativement plus élevé pour les Périodes 10001 et 20001 et présente un écart-type plus important pour les Périodes 5001 et 10001. Toutefois, le Rang d'atteinte de la précision moyenne maximale (Rank_max_avg_accuracy) n'a pas d'effet significatif sur la Précision moyenne Maximale elle-même ;
+
+- la Différence entre la Précision moyenne Maximale (Max_avg_accuracy) et Finale (Final_avg_accuracy) est significative pour la Période 5001 ;
+
+- seule la Période a un effet significatif sur la variance de la Précision moyenne Maximale (Max_avg_accuracy) et explique 98.4% (R²) de sa variance, et cet effet est indépendant du Taux de succès moyen.
+
+**Ces résultats confirment les analyses de Yasser Bourahla** et indiquent que par rapport à la Précision moyenne (Finale et Maximale) qui s'observe dans une population sans renouvellement d'agents (Période 200001, 0.86), la Précision moyenne (Finale et Maximale) est :
+
+- **significativement supérieure avec les Périodes 10001 (0.91 et 0.92) et 20001 (0.95 et 0.96)** ;
+
+- **significativement inférieure avec la Période 5001 (0.63 et 0.67)**.
+
+Dès lors, il serait intéressant d'examiner plus finement l'intervalle de périodes auquel les populations d'agents passent d'une précision moyenne inférieure à celle qui s'observe dans une population sans renouvellement, à une précision moyenne qui lui est supérieure. 
+Cela permettrait de **voir si cette bascule de l'évolution de la précision moyenne selon la période se fait par de petites variations graduelles ou présente au contraire des effets de seuils.**
+ 
+
+
